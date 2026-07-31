@@ -59,6 +59,21 @@ router.get('/:id', protect, async (req, res) => {
 router.post('/', protect, async (req, res) => {
   try {
     req.body.recruiter = req.recruiter.id;
+
+    if (!req.body.company || !req.body.company.trim()) {
+      let companyName = req.recruiter.companyName;
+
+      if (!companyName && req.recruiter.companyId) {
+        const Company = require('../models/Company');
+        const companyRecord = await Company.findById(req.recruiter.companyId);
+        if (companyRecord && companyRecord.companyName) {
+          companyName = companyRecord.companyName;
+        }
+      }
+
+      req.body.company = companyName && companyName.trim() ? companyName.trim() : 'DataExcel';
+    }
+
     const job = await Job.create(req.body);
     res.status(201).json({ success: true, data: job });
   } catch (error) {
@@ -75,6 +90,20 @@ router.put('/:id', protect, async (req, res) => {
 
     if (!job) {
       return res.status(404).json({ success: false, error: 'Job not found' });
+    }
+
+    if (req.body.company === '' || req.body.company === null || (req.body.company && !req.body.company.trim())) {
+      let companyName = req.recruiter.companyName;
+
+      if (!companyName && req.recruiter.companyId) {
+        const Company = require('../models/Company');
+        const companyRecord = await Company.findById(req.recruiter.companyId);
+        if (companyRecord && companyRecord.companyName) {
+          companyName = companyRecord.companyName;
+        }
+      }
+
+      req.body.company = companyName && companyName.trim() ? companyName.trim() : (job.company || 'DataExcel');
     }
 
     job = await Job.findByIdAndUpdate(req.params.id, req.body, {
