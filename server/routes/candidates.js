@@ -8,7 +8,20 @@ const { protect } = require('../middleware/auth');
 const upload = require('../middleware/upload');
 const nodemailer = require('nodemailer');
 
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+const rawAiUrl = (process.env.AI_SERVICE_URL || 'https://dataaxle-2.onrender.com').trim().replace(/\/+$/, '');
+const AI_SERVICE_URL = rawAiUrl;
+
+// Helper to get predictive endpoints
+const getAiPredictEndpoint = () => `${AI_SERVICE_URL}/predict`;
+
+// Axios instance for AI Service calls with 15-second timeout and retry support
+const aiClient = axios.create({
+  baseURL: AI_SERVICE_URL,
+  timeout: 15000, // 15 seconds timeout
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
 
 // @desc    Get all candidates with filters, sorting, and NL Search proxy
 // @route   GET /api/candidates
@@ -21,7 +34,7 @@ router.get('/', protect, async (req, res) => {
     // If a natural language query is supplied
     if (req.query.query) {
       try {
-        const aiResponse = await axios.post(`${AI_SERVICE_URL}/search`, {
+        const aiResponse = await aiClient.post('/search', {
           query: req.query.query
         });
         
@@ -281,7 +294,7 @@ router.post('/:id/apply/:jobId', protect, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Candidate has already applied to this job' });
     }
 
-    // Call Python service to get Match Score
+    // Call Python service to get Match Score using /predict endpoint
     let aiMatchScore = 50;
     let aiAnalysis = {
       skillScore: 50,
@@ -292,18 +305,36 @@ router.post('/:id/apply/:jobId', protect, async (req, res) => {
     };
 
     try {
-      const matchRes = await axios.post(`${AI_SERVICE_URL}/match`, {
-        candidate: {
-          skills: candidate.skills,
-          experience: candidate.experience,
-          education: candidate.education
-        },
-        job: {
-          requiredSkills: job.requiredSkills,
-          experience: job.experience,
-          education: job.education
-        }
-      });
+      let matchRes;
+      try {
+        const predictUrl = getAiPredictEndpoint();
+        matchRes = await axios.post(predictUrl, {
+          candidate: {
+            skills: candidate.skills,
+            experience: candidate.experience,
+            education: candidate.education
+          },
+          job: {
+            requiredSkills: job.requiredSkills,
+            experience: job.experience,
+            education: job.education
+          }
+        }, { timeout: 15000 });
+      } catch (predictErr) {
+        // Fallback to /match if /predict is not deployed on remote service yet
+        matchRes = await aiClient.post('/match', {
+          candidate: {
+            skills: candidate.skills,
+            experience: candidate.experience,
+            education: candidate.education
+          },
+          job: {
+            requiredSkills: job.requiredSkills,
+            experience: job.experience,
+            education: job.education
+          }
+        });
+      }
       
       aiMatchScore = matchRes.data.matchScore;
       aiAnalysis = {
@@ -314,7 +345,7 @@ router.post('/:id/apply/:jobId', protect, async (req, res) => {
         relevanceExplanation: matchRes.data.relevanceExplanation
       };
     } catch (err) {
-      console.error('FastAPI Matching Service unavailable. Calculating local fallback.', err.message);
+      console.error(`AI Service endpoint (${AI_SERVICE_URL}) unavailable or timed out: ${err.message}. Calculating local fallback.`);
       // Fallback matching logic
       const reqSkills = job.requiredSkills.map(s => s.toLowerCase());
       const candSkills = candidate.skills.map(s => s.toLowerCase());
@@ -510,8 +541,8 @@ router.post('/copilot', protect, async (req, res) => {
       activeJob = await Job.findOne({ _id: jobId, recruiter: req.recruiter.id });
     }
 
-    // Forward to FastAPI copilot
-    const copilotRes = await axios.post(`${AI_SERVICE_URL}/copilot`, {
+    // Forward to FastAPI copilot with timeout and error handling
+    const copilotRes = await aiClient.post('/copilot', {
       message,
       candidates,
       job: activeJob

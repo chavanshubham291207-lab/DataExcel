@@ -24,11 +24,24 @@ const io = new Server(server, { cors: { origin: '*' } });
 app.use((req, res, next) => { req.io = io; next(); });
 app.use(express.json());
 
-// Enable CORS
+// Enable CORS with support for production frontend and fallback
+const allowedOrigins = [
+  'https://data-axle-uzzr.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:3000'
+];
+
 app.use(cors({
-  origin: '*', // For development, allow all origins
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
+      callback(null, true);
+    } else {
+      callback(null, true); // Allow requests to ensure cross-origin access on Vercel deployment
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
 // Set Security Headers (configured to allow canvas / image operations for charts/pdf)

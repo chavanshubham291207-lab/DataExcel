@@ -15,7 +15,13 @@ app = FastAPI(title="AI Talent Intelligence Service", version="1.0.0")
 # Enable CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://data-axle-uzzr.vercel.app",
+        "https://dataexcel-1.onrender.com",
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "*"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -209,9 +215,10 @@ async def parse_resume_endpoint(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to parse resume: {str(e)}")
 
+@app.post("/predict")
 @app.post("/match")
 def match_candidate_endpoint(data: MatchRequest):
-    """Calculate match score between a candidate profile and a job description"""
+    """Calculate match score / predict candidate fit between profile and job description"""
     try:
         result = calculate_match_score(data.candidate, data.job)
         return result
