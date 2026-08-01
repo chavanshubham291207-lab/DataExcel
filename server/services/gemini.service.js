@@ -2,14 +2,17 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 /**
  * Production-ready Gemini LLM Service using official @google/generative-ai SDK.
- * Uses active Google Gemini model endpoints (gemini-flash-latest, gemini-2.0-flash-lite).
+ * Model fallback order:
+ * 1. gemini-2.5-flash
+ * 2. gemini-2.0-flash
+ * 3. gemini-1.5-flash
  */
 
 const getApiKey = () => process.env.GEMINI_API_KEY || process.env.GOOGLE_GEMINI_KEY || '';
 
 /**
  * Sends a prompt to Gemini LLM model and returns the generated text response.
- * Uses a strict timeout of 2000ms per model to prevent hanging on network/quota errors.
+ * Uses a strict timeout of 12000ms per model via Promise.race to prevent hanging.
  * @param {string} prompt - The input prompt string for Gemini
  * @returns {Promise<string|null>} The generated response text or null if error
  */
@@ -29,15 +32,15 @@ async function askGemini(prompt) {
     const genAI = new GoogleGenerativeAI(apiKey);
     console.log('SENDING TO GEMINI:', prompt.slice(0, 150));
 
-    // Active production model list prioritize gemini-flash-latest
-    const models = ['gemini-flash-latest', 'gemini-2.0-flash-lite', 'gemini-2.0-flash', 'gemini-pro-latest'];
+    // Production model fallback sequence
+    const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
 
     for (const modelName of models) {
       try {
         const model = genAI.getGenerativeModel({ model: modelName });
         
-        // Timeout helper
-        const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 2000));
+        // 12-second timeout helper using Promise.race
+        const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 12000));
         
         const generatePromise = (async () => {
           try {
