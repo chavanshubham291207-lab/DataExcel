@@ -23,6 +23,7 @@ const io = new Server(server, { cors: { origin: '*' } });
 // Middlewares
 app.use((req, res, next) => { req.io = io; next(); });
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Enable CORS with support for production frontend and fallback
 const allowedOrigins = [
@@ -89,6 +90,16 @@ app.use('/api/ats', require('./routes/ats.routes'));
 // Basic health check route
 app.get('/', (req, res) => {
   res.json({ status: 'ok', service: 'express-recruiter-api' });
+});
+
+// API health check route
+app.get('/api/health', (req, res) => {
+  res.json({
+    success: true,
+    service: "AI Recruitment Platform API",
+    status: "healthy",
+    timestamp: new Date().toISOString()
+  });
 });
 
 

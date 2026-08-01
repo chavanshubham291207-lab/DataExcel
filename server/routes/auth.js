@@ -23,7 +23,11 @@ const generateToken = (user) => {
 // @route   POST /api/auth/register
 // @access  Public
 router.post('/register', async (req, res) => {
-  const { name, email, password, companyName } = req.body;
+  console.log('[DEBUG /api/auth/register] Received req.body:', req.body);
+  const name = req.body?.name || req.body?.fullName || req.body?.username;
+  const email = req.body?.email;
+  const password = req.body?.password;
+  const companyName = req.body?.companyName || req.body?.company;
 
   if (!email || !password || !name) {
     return res.status(400).json({ success: false, error: 'Please provide name, email and password' });

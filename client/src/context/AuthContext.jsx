@@ -11,19 +11,17 @@ export const normalizeRole = (roleStr) => {
   return 'recruiter';
 };
 
-// Helper to sanitize localStorage and maintain strictly 3 keys: token, role, user
+// Helper to sanitize localStorage and remove invalid/orphaned values
 const sanitizeLocalStorage = () => {
   try {
     const invalidValues = ['undefined', 'null', ''];
-    ['token', 'role', 'user', 'candidateUser', 'recruiter', 'demoUser', 'tempUser'].forEach(key => {
+    ['token', 'role', 'user', 'candidateUser', 'recruiter'].forEach(key => {
       const val = localStorage.getItem(key);
-      if (!val || invalidValues.includes(val.trim())) {
+      if (val && invalidValues.includes(val.trim())) {
         localStorage.removeItem(key);
       }
     });
-    // Remove legacy duplicate keys
-    localStorage.removeItem('candidateUser');
-    localStorage.removeItem('recruiter');
+    // Remove unused temporary test keys
     localStorage.removeItem('demoUser');
     localStorage.removeItem('tempUser');
   } catch (e) {
@@ -73,7 +71,15 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('token', newToken);
     localStorage.setItem('role', normalizedRole);
     if (finalUserPayload) {
-      localStorage.setItem('user', JSON.stringify(finalUserPayload));
+      const stringifiedUser = JSON.stringify(finalUserPayload);
+      localStorage.setItem('user', stringifiedUser);
+
+      // Save role-specific storage keys as requested
+      if (normalizedRole === 'candidate') {
+        localStorage.setItem('candidateUser', stringifiedUser);
+      } else {
+        localStorage.setItem('recruiter', stringifiedUser);
+      }
     }
 
     setToken(newToken);

@@ -74,6 +74,18 @@ router.post('/', protect, async (req, res) => {
       req.body.company = companyName && companyName.trim() ? companyName.trim() : 'DataExcel';
     }
 
+    if (!req.body.employmentType) {
+      req.body.employmentType = req.body.type || req.body.jobType || 'Full-time';
+    }
+    if (!req.body.department || !req.body.department.trim()) {
+      req.body.department = 'Engineering';
+    }
+    if (!req.body.deadline) {
+      const defaultDeadline = new Date();
+      defaultDeadline.setDate(defaultDeadline.getDate() + 30);
+      req.body.deadline = defaultDeadline;
+    }
+
     const job = await Job.create(req.body);
     res.status(201).json({ success: true, data: job });
   } catch (error) {
